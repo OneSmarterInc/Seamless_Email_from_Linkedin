@@ -8,7 +8,7 @@ from django.views.decorators.http import require_POST
 
 from .models import Job, StudentResult
 from .runner import start_job
-from .seamless import parse_rows
+from .seamless import parse_rows, rows_from_text, rows_from_upload
 
 CSV_FIELDS = ["name", "linkedin_url", "college", "status", "valid_email", "email_type", "confidence",
               "match_check", "seamless_name", "seamless_company", "seamless_title",
@@ -28,14 +28,18 @@ def create_job(request):
         messages.error(request, "SEAMLESS_API_KEY is missing. Add it to the .env file and restart the server.")
         return redirect("finder:index")
 
-    text = request.POST.get("paste", "")
     f = request.FILES.get("file")
+    rows = rows_from_text(request.POST.get("paste", ""))
     if f:
-        text = f.read().decode("utf-8-sig", errors="replace") + "\n" + text
+        try:
+            rows = rows_from_upload(f.name, f.read()) + rows
+        except Exception as e:  # noqa: BLE001
+            messages.error(request, f"Could not read {f.name}: {e}")
+            return redirect("finder:index")
     college = request.POST.get("college", "").strip()
-    people = parse_rows(text, college)
+    people = parse_rows(rows, college)
     if not people:
-        messages.error(request, "No rows with a LinkedIn profile URL were found.")
+        messages.error(request, "No rows with a LinkedIn profile URL (linkedin.com/in/...) were found in the file or the pasted text.")
         return redirect("finder:index")
 
     job = Job.objects.create(name=request.POST.get("name", "").strip() or (f.name if f else ""),

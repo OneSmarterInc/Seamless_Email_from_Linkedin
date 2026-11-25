@@ -18,9 +18,9 @@
     {% if server_key %}<p class="muted" style="margin-top:12px">Seamless API key: loaded from .env</p>
     {% else %}<div class="msg error" style="margin-top:12px">SEAMLESS_API_KEY is missing. Add it to the .env file in the project folder and restart the server.</div>{% endif %}
 
-    <label>Upload file (CSV / TSV)</label>
+    <label>Upload file (Excel .xlsx, CSV or TSV)</label>
     <div class="drop" id="drop">Drop a file here or click to choose<br><span class="muted" id="fname">Columns: name, linkedin_url, college</span></div>
-    <input type="file" name="file" id="file" accept=".csv,.tsv,.txt" hidden>
+    <input type="file" name="file" id="file" accept=".xlsx,.xlsm,.csv,.tsv,.txt" hidden>
 
     <label>Or paste rows</label>
     <textarea name="paste" placeholder="Abhay Kamalapur	https://www.linkedin.com/in/abhay-kamalapur-24868b388	KLE Technological University

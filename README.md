@@ -20,7 +20,7 @@ Optional: `python manage.py createsuperuser`, then use http://127.0.0.1:8000/adm
 
 ## Use it
 
-1. Upload a CSV/TSV, or paste rows: `name, linkedin_url, college`. A row with only a URL works. `sample_students.csv` is an example.
+1. Upload an Excel (.xlsx) file or a CSV/TSV, or paste rows: `name, linkedin_url, college`. A row with only a URL works. `sample_students.csv` is an example.
 2. Set a default college for rows with no college. Seamless needs it: without it, it answers "Company name is required".
 3. Click **Find emails**. The job page shows progress, a live log, counts, and a results table with filters and search.
 4. Download **valid emails** only, or **all rows**.

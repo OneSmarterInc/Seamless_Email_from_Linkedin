@@ -124,25 +124,68 @@ def guessed(contact):
 
 # ---------------------------------------------------------------- input
 
-def parse_rows(text, default_college=""):
-    """Accepts CSV/TSV/pasted lines. Any column holding a linkedin.com/in/ URL is the profile.
-    The first other column is the name, the second is the college."""
+def rows_from_upload(filename, data):
+    """Turn an uploaded file into a list of rows (lists of strings).
+    Supports .xlsx/.xlsm (all sheets) and CSV/TSV/TXT."""
+    name = (filename or "").lower()
+    if name.endswith((".xlsx", ".xlsm")) or data[:2] == b"PK":
+        return rows_from_xlsx(data)
+    if name.endswith(".xls"):
+        raise ValueError("Old .xls files are not supported. Save the file as .xlsx or CSV and upload again.")
+    return rows_from_text(data.decode("utf-8-sig", errors="replace"))
+
+
+def rows_from_xlsx(data):
+    from openpyxl import load_workbook
+    wb = load_workbook(io.BytesIO(data), read_only=False, data_only=True)
+    rows = []
+    for ws in wb.worksheets:
+        for row in ws.iter_rows():
+            out = []
+            for cell in row:
+                val = "" if cell.value is None else str(cell.value).strip()
+                link = cell.hyperlink.target if cell.hyperlink and cell.hyperlink.target else ""
+                # A cell may show a name but link to the LinkedIn profile
+                if link and "linkedin.com/in/" in link.lower() and "linkedin.com/in/" not in val.lower():
+                    if val:
+                        out.append(val)
+                    out.append(link)
+                else:
+                    out.append(val)
+            rows.append(out)
+    return rows
+
+
+def rows_from_text(text):
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     delim = "\t" if "\t" in text[:2048] else ","
+    try:
+        return list(csv.reader(io.StringIO(text, newline=""), delimiter=delim))
+    except csv.Error:
+        # Broken quoting: fall back to a plain split
+        return [line.split(delim) for line in text.split("\n")]
+
+
+def parse_rows(rows, default_college=""):
+    """rows: list of lists, or raw text. Any column holding a linkedin.com/in/ URL is the profile.
+    The first other column is the name, the second is the college."""
+    if isinstance(rows, str):
+        rows = rows_from_text(rows)
     people, seen = [], set()
-    for r in csv.reader(io.StringIO(text), delimiter=delim):
-        r = [c.strip() for c in r]
+    for r in rows:
+        r = [str(c).strip() for c in r if c is not None]
         url_i = next((i for i, c in enumerate(r) if "linkedin.com/in/" in c.lower()), None)
         if url_i is None:
             continue
-        url = r[url_i].rstrip("/")
+        url = r[url_i].split()[0].rstrip("/")
         if not url.startswith("http"):
             url = "https://" + url
         key = slug(url)
-        if key in seen:
+        if not key or key in seen:
             continue
         seen.add(key)
-        others = [c for i, c in enumerate(r) if i != url_i and c]
+        others = [" ".join(c.split()) for i, c in enumerate(r) if i != url_i and c]
         name = others[0] if others else key.rsplit("-", 1)[0].replace("-", " ").title()
         college = others[1] if len(others) > 1 else default_college
-        people.append({"name": name, "linkedin_url": url, "college": college})
+        people.append({"name": name[:200], "linkedin_url": url, "college": college[:200]})
     return people
