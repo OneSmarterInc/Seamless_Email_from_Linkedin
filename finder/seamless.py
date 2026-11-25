@@ -168,7 +168,7 @@ def rows_from_text(text):
         return [line.split(delim) for line in text.split("\n")]
 
 
-TEMPLATE_HEADERS = ["Student Name", "LinkedIn URL", "College"]
+TEMPLATE_HEADERS = ["S.No.", "College", "Student Name", "LinkedIn Profile", "Source File"]
 COLLEGE_WORDS = ("college", "university", "institute", "school", "polytechnic", "academy")
 
 
@@ -188,6 +188,12 @@ def _header_map(row):
         elif "name" not in m and "name" in c:
             m["name"] = i
     return m if "url" in m else None
+
+
+def college_unclear(text):
+    """True when the College cell is empty or holds a person/link instead of a college."""
+    t = (text or "").strip()
+    return not t or "linkedin.com" in t.lower() or "http" in t.lower() or t.startswith(".")
 
 
 def looks_like_college(text):
@@ -239,32 +245,33 @@ def build_template_xlsx():
     from openpyxl.styles import Alignment, Font, PatternFill
     wb = Workbook()
     ws = wb.active
-    ws.title = "Students"
+    ws.title = "All Profiles Master"
     ws.append(TEMPLATE_HEADERS)
     for c in ws[1]:
         c.font = Font(bold=True, color="FFFFFF")
-        c.fill = PatternFill("solid", fgColor="2350D8")
-        c.alignment = Alignment(vertical="center")
-    for col, w in zip("ABC", (30, 60, 40)):
+        c.fill = PatternFill("solid", fgColor="1F3864")
+        c.alignment = Alignment(horizontal="center", vertical="center")
+    for col, w in zip("ABCDE", (8, 45, 30, 60, 28)):
         ws.column_dimensions[col].width = w
     ws.freeze_panes = "A2"
     info = wb.create_sheet("Instructions")
     for line in [
-        ["How to fill the Students sheet"],
+        ["How to fill the All Profiles Master sheet"],
         [""],
-        ["Column A  Student Name", "Full name as on LinkedIn, for example: Abhay Kamalapur"],
-        ["Column B  LinkedIn URL", "Full profile link, for example: www linkedin com / in / abhay-kamalapur-24868b388"],
-        ["Column C  College", "Full college name, for example: KLE Technological University"],
+        ["S.No.", "Row number. Optional."],
+        ["College", "Full college name, the same spelling for every student of that college. Example: ABES Engineering College"],
+        ["Student Name", "Full name as on LinkedIn. Example: Aaryan Singhal"],
+        ["LinkedIn Profile", "Full profile link starting with https and containing linkedin com / in /"],
+        ["Source File", "Where the row came from. Optional. Not sent to Seamless."],
         [""],
-        ["Rules", "One student per row. Do not change the header row. Do not merge cells."],
-        ["", "Leave College empty to use the college you type on the upload page."],
-        ["", "Use the same college name for all students of one college."],
-        ["", "This Instructions sheet is ignored when you upload."],
+        ["Rules", "One student per row. Keep the header row. Do not merge cells."],
+        ["", "Put only the college name in College. No person names or links."],
+        ["", "Other sheets (for example College Summary, Instructions) are ignored on upload."],
     ]:
         info.append(line)
     info["A1"].font = Font(bold=True, size=13)
-    info.column_dimensions["A"].width = 26
-    info.column_dimensions["B"].width = 90
+    info.column_dimensions["A"].width = 20
+    info.column_dimensions["B"].width = 100
     import io as _io
     buf = _io.BytesIO()
     wb.save(buf)

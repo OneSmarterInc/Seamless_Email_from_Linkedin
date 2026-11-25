@@ -1,0 +1,74 @@
+{% extends "finder/base.html" %}
+{% block title %}Review · {{ job }}{% endblock %}
+{% block content %}
+<style>
+.tablewrap{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.rowbad{background:#fff8ec}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+td input[type=text]{padding:6px 8px;font-size:13px}
+.sum{font-size:15px;font-weight:600}
+</style>
+<form method="post">
+{% csrf_token %}
+<div class="card">
+  <h1>Review before you start</h1>
+  <p class="muted">{{ job.name|default:"Upload" }} · {{ job.total }} students in {{ groups|length }} colleges. Choose the colleges to run and fix any college names. Nothing is sent to Seamless until you click Start.</p>
+  {% if unclear_n %}
+  <div class="msg error">{{ unclear_n }} students have no clear college (the College cell holds a person's name, a link, or nothing). They are unticked. Type the right college name next to them to include them.</div>
+  {% endif %}
+  <div class="tools" style="justify-content:space-between">
+    <div class="tools">
+      <button type="button" class="btn ghost" onclick="setAll(true)">Select all</button>
+      <button type="button" class="btn ghost" onclick="setAll(false)">Select none</button>
+      <input type="text" id="filter" placeholder="Filter colleges" style="width:240px">
+    </div>
+    <div class="sum">Selected: <span id="selN">0</span> students · up to <span id="selC">0</span> Seamless credits</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th style="width:40px">Run</th><th>College in file</th><th style="width:90px">Students</th><th style="width:38%">College name to send to Seamless</th></tr></thead>
+      <tbody>
+      {% for g in groups %}
+        <tr class="grp {% if g.unclear %}rowbad{% endif %}" data-n="{{ g.n }}" data-name="{{ g.college|lower }}">
+          <td><input type="checkbox" name="use_{{ g.idx }}" {% if not g.unclear %}checked{% endif %} onchange="calc()"></td>
+          <td>{{ g.college|default:"(empty)" }}{% if g.unclear %}<br><span class="warn">Not a college name</span>{% endif %}</td>
+          <td>{{ g.n }}</td>
+          <td><input type="text" name="name_{{ g.idx }}" value="{% if not g.unclear %}{{ g.college }}{% endif %}" placeholder="Type the college name"
+               oninput="if(this.value.trim()) this.closest('tr').querySelector('input[type=checkbox]').checked=true; calc()"></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">Seamless charges 1 credit per student when it finds an email and returns the credit when it finds nothing. Large runs take time: about 1-3 minutes per 100 students.</p>
+  <div class="tools">
+    <button class="btn" type="submit" {% if not server_key %}disabled{% endif %}>Start</button>
+    {% if not server_key %}<span class="warn">SEAMLESS_API_KEY is missing in .env</span>{% endif %}
+  </div>
+</div>
+</form>
+<form method="post" action="{% url 'finder:delete' job.pk %}" onsubmit="return confirm('Discard this upload?')">
+  {% csrf_token %}<button class="btn ghost" type="submit">Discard upload</button>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+const rows=[...document.querySelectorAll('tr.grp')];
+function calc(){
+  let n=0; rows.forEach(r=>{ const cb=r.querySelector('input[type=checkbox]'), nm=r.querySelector('input[type=text]');
+    if(cb.checked && !nm.value.trim()){ nm.style.borderColor='#b42318'; } else { nm.style.borderColor=''; }
+    if(cb.checked) n+=+r.dataset.n; });
+  document.getElementById('selN').textContent=n.toLocaleString(); document.getElementById('selC').textContent=n.toLocaleString();
+}
+function setAll(v){ rows.filter(r=>r.style.display!=='none').forEach(r=>r.querySelector('input[type=checkbox]').checked=v); calc(); }
+document.getElementById('filter').oninput=e=>{ const q=e.target.value.toLowerCase(); rows.forEach(r=>r.style.display=r.dataset.name.includes(q)?'':'none'); };
+document.querySelector('form').onsubmit=e=>{
+  const bad=rows.filter(r=>r.querySelector('input[type=checkbox]').checked && !r.querySelector('input[type=text]').value.trim());
+  if(bad.length){ e.preventDefault(); alert('Type a college name for every selected row, or untick it.'); }
+};
+calc();
+</script>
+{% endblock %}

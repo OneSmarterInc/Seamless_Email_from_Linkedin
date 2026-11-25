@@ -44,6 +44,14 @@
 </div>
 
 <div class="card">
+  <h2>By college</h2>
+  <div class="tablewrap" style="max-height:300px">
+    <table><thead><tr><th>College</th><th>Students</th><th>Processed</th><th>Valid emails</th><th></th></tr></thead>
+    <tbody id="colrows"></tbody></table>
+  </div>
+</div>
+
+<div class="card">
   <h2>Activity log</h2>
   <pre id="log"></pre>
 </div>
@@ -57,8 +65,12 @@
       <button data-f="nf">Not found</button>
       <button data-f="check">Check match</button>
     </div>
-    <input type="text" id="q" placeholder="Search name or email">
+    <div class="tools">
+      <select id="col" style="padding:8px;border:1px solid #cfd5df;border-radius:8px;max-width:320px"><option value="">All colleges</option></select>
+      <input type="text" id="q" placeholder="Search name, email or URL">
+    </div>
   </div>
+  <p class="muted" id="shown"></p>
   <div class="tablewrap">
     <table>
       <thead><tr><th>#</th><th>Student</th><th>College</th><th>Status</th><th>Valid email</th><th>Match</th><th>Seamless found</th><th>Guessed (unverified)</th></tr></thead>
@@ -84,57 +96,56 @@
 
 {% block scripts %}
 <script>
-const statusUrl="{% url 'finder:status' job.pk %}";
-let data={rows:[]}, filter='all';
+const statusUrl="{% url 'finder:status' job.pk %}", rowsUrl="{% url 'finder:rows' job.pk %}", dlUrl="{% url 'finder:download' job.pk %}";
+let filter='all', state='', lastRows=0, colsFilled=false, timer=null;
 const $=id=>document.getElementById(id);
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 document.querySelectorAll('#filters button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#filters button').forEach(x=>x.classList.remove('on'));
-  b.classList.add('on'); filter=b.dataset.f; draw();
+  b.classList.add('on'); filter=b.dataset.f; loadRows();
 });
-$('q').oninput=draw;
+$('q').oninput=()=>{ clearTimeout(timer); timer=setTimeout(loadRows,300); };
+$('col').onchange=loadRows;
 
-function keep(r){
-  const q=$('q').value.toLowerCase();
-  if(q && !(r.name.toLowerCase().includes(q) || r.valid_email.toLowerCase().includes(q))) return false;
-  if(filter==='valid') return !!r.valid_email;
-  if(filter==='guess') return !r.valid_email && !!r.guessed_emails;
-  if(filter==='nf') return r.status==='not found';
-  if(filter==='check') return r.match_check && r.match_check!=='linkedin_match';
-  return true;
-}
-
-function draw(){
-  $('rows').innerHTML=data.rows.filter(keep).map((r,i)=>`<tr>
-    <td>${i+1}</td>
+async function loadRows(){
+  const u=new URL(rowsUrl,location.href); u.searchParams.set('f',filter); u.searchParams.set('q',$('q').value); u.searchParams.set('c',$('col').value);
+  const d=await (await fetch(u)).json();
+  $('shown').textContent = d.total>d.limit ? `Showing the first ${d.limit} of ${d.total.toLocaleString()} rows. Use the filters or download the CSV for all rows.` : `${d.total.toLocaleString()} rows`;
+  $('rows').innerHTML=d.rows.map(r=>`<tr>
+    <td>${r.row_no}</td>
     <td><b>${esc(r.name)}</b><br><a href="${esc(r.linkedin_url)}" target="_blank" rel="noopener">LinkedIn ↗</a></td>
     <td>${esc(r.college)}</td>
     <td><span class="pill ${esc(r.status)}">${esc(r.status)}</span>${r.message?`<br><span class="warn">${esc(r.message)}</span>`:''}</td>
-    <td>${r.valid_email?`<span class="ok">${esc(r.valid_email)}</span> <button class="copy" onclick="navigator.clipboard.writeText('${esc(r.valid_email)}')">copy</button><br><span class="muted">${esc(r.email_type)} ${esc(r.confidence)}</span>`:'<span class="muted">—</span>'}</td>
+    <td>${r.valid_email?`<span class="ok">${esc(r.valid_email)}</span> <button class="copy" data-e="${esc(r.valid_email)}">copy</button><br><span class="muted">${esc(r.email_type)} ${esc(r.confidence)}</span>`:'<span class="muted">—</span>'}</td>
     <td>${r.match_check?`<span class="pill ${esc(r.match_check)}">${esc(r.match_check.replace(/_/g,' '))}</span>`:''}</td>
     <td>${esc(r.seamless_name)}<br><span class="muted">${esc(r.seamless_company)} ${esc(r.seamless_title)}</span></td>
     <td class="warn" style="font-size:12px">${esc(r.guessed_emails).replace(/; /g,'<br>')}</td>
   </tr>`).join('') || '<tr><td colspan="8" class="muted">No rows for this filter.</td></tr>';
 }
+document.addEventListener('click',e=>{ if(e.target.classList.contains('copy')){ navigator.clipboard.writeText(e.target.dataset.e); e.target.textContent='copied'; } });
 
 async function tick(){
-  try{
-    data=await (await fetch(statusUrl)).json();
-    const pct=data.total?Math.round(100*data.processed/data.total):0;
-    $('bar').style.width=pct+'%';
-    $('progress').textContent=`${data.processed} of ${data.total} processed (${pct}%)`;
-    $('s_total').textContent=data.total; $('s_done').textContent=data.processed;
-    $('s_found').textContent=data.found; $('s_match').textContent=data.matched; $('s_nf').textContent=data.not_found;
-    $('s_rate').textContent=data.processed?Math.round(100*data.found/data.processed)+'%':'–';
-    const st=$('state'); st.textContent=data.state[0].toUpperCase()+data.state.slice(1); st.className='pill '+data.state;
-    const lg=$('log'), atEnd=lg.scrollTop+lg.clientHeight>=lg.scrollHeight-20;
-    lg.textContent=data.log||'Waiting for the worker…'; if(atEnd) lg.scrollTop=lg.scrollHeight;
-    $('retry').disabled=(data.state==='running'||data.state==='queued');
-    draw();
-  }catch(e){ $('progress').textContent='Lost connection to the server. Retrying…'; }
-  if(!data.state || data.state==='running' || data.state==='queued') setTimeout(tick,2000);
+  let d;
+  try{ d=await (await fetch(statusUrl)).json(); }
+  catch(e){ $('progress').textContent='Lost connection to the server. Retrying…'; setTimeout(tick,4000); return; }
+  state=d.state;
+  const pct=d.total?Math.round(100*d.processed/d.total):0;
+  $('bar').style.width=pct+'%';
+  $('progress').textContent=`${d.processed.toLocaleString()} of ${d.total.toLocaleString()} processed (${pct}%)`;
+  $('s_total').textContent=d.total.toLocaleString(); $('s_done').textContent=d.processed.toLocaleString();
+  $('s_found').textContent=d.found.toLocaleString(); $('s_match').textContent=d.matched.toLocaleString(); $('s_nf').textContent=d.not_found.toLocaleString();
+  $('s_rate').textContent=d.processed?Math.round(100*d.found/d.processed)+'%':'–';
+  const st=$('state'); st.textContent=state[0].toUpperCase()+state.slice(1); st.className='pill '+state;
+  const lg=$('log'), atEnd=lg.scrollTop+lg.clientHeight>=lg.scrollHeight-20;
+  lg.textContent=d.log||'Waiting for the worker…'; if(atEnd) lg.scrollTop=lg.scrollHeight;
+  $('retry').disabled=(state==='running'||state==='queued');
+  $('colrows').innerHTML=d.by_college.map(c=>`<tr><td>${esc(c.college)}</td><td>${c.total}</td><td>${c.processed}</td><td class="ok">${c.found}</td>
+     <td><a class="btn ghost" style="padding:4px 10px;font-size:12px" href="${dlUrl}?c=${encodeURIComponent(c.college)}">CSV</a></td></tr>`).join('');
+  if(!colsFilled){ $('col').innerHTML='<option value="">All colleges</option>'+d.by_college.map(c=>`<option value="${esc(c.college)}">${esc(c.college)} (${c.total})</option>`).join(''); colsFilled=true; }
+  if(d.processed!==lastRows){ lastRows=d.processed; loadRows(); }
+  if(state==='running'||state==='queued') setTimeout(tick,3000);
 }
-tick();
+loadRows(); tick();
 </script>
 {% endblock %}

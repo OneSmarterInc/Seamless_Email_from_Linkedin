@@ -20,10 +20,12 @@ Optional: `python manage.py createsuperuser`, then use http://127.0.0.1:8000/adm
 
 ## Use it
 
-1. Click **Download Excel template** on the home page. Fill one student per row: `Student Name | LinkedIn URL | College`. Keep the header row.
-2. Upload the filled file (or any Excel/CSV/TSV with those headers in any order), or paste rows: `name, linkedin_url, college`. A row with only a URL works. `sample_students.csv` is an example.
+1. Click **Download Excel template** on the home page. It uses the master-list layout: `S.No. | College | Student Name | LinkedIn Profile | Source File`. Keep the header row.
+2. Upload the filled file (or your master list as it is). Other sheets such as College Summary are ignored.
+3. On the **Review** page, tick the colleges to run and fix college names. Rows whose College cell holds a person's name or a link are unticked until you type a college. Nothing runs until you click Start.
+4. or paste rows: `name, linkedin_url, college`. A row with only a URL works. `sample_students.csv` is an example.
 2. Set a default college for rows with no college. Seamless needs it: without it, it answers "Company name is required".
-3. Click **Find emails**. The job page shows progress, a live log, counts, and a results table with filters and search.
+The job page shows progress, a live log, counts, and a results table with filters, search, a college filter, and a per-college breakdown with CSV downloads.
 4. Download **valid emails** only, or **all rows**.
 5. Use **Retry** to run the rows with no valid email again, for example with a different college name.
 

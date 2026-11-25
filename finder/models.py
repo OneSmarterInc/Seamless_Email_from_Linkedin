@@ -2,7 +2,7 @@ from django.db import models
 
 
 class Job(models.Model):
-    STATES = [("queued", "Queued"), ("running", "Running"), ("done", "Done"), ("error", "Error")]
+    STATES = [("draft", "Review"), ("queued", "Queued"), ("running", "Running"), ("done", "Done"), ("error", "Error")]
 
     name = models.CharField(max_length=200, blank=True)
     default_college = models.CharField(max_length=200, blank=True)

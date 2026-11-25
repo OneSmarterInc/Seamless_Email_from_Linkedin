@@ -22,17 +22,17 @@
       <b>Step 1:</b> Download the template, fill one student per row, and upload it.
       <a class="btn ghost" style="margin-left:8px" href="{% url 'finder:template_xlsx' %}">Download Excel template</a>
       <a class="btn ghost" href="{% url 'finder:template_csv' %}">CSV template</a>
-      <div class="muted" style="margin-top:8px">Columns: <b>Student Name</b> | <b>LinkedIn URL</b> | <b>College</b>. Keep the header row. Columns are read by their header, so their order does not matter.</div>
+      <div class="muted" style="margin-top:8px">Columns: <b>S.No.</b> | <b>College</b> | <b>Student Name</b> | <b>LinkedIn Profile</b> | <b>Source File</b> (the same layout as your master list). Keep the header row. Columns are read by header name, so the order can change. After upload you review the colleges before anything runs.</div>
     </div>
     <label>Step 2: Upload the filled file (Excel .xlsx, CSV or TSV)</label>
-    <div class="drop" id="drop">Drop a file here or click to choose<br><span class="muted" id="fname">Student Name | LinkedIn URL | College</span></div>
+    <div class="drop" id="drop">Drop a file here or click to choose<br><span class="muted" id="fname">S.No. | College | Student Name | LinkedIn Profile | Source File</span></div>
     <input type="file" name="file" id="file" accept=".xlsx,.xlsm,.csv,.tsv,.txt" hidden>
 
     <label>Or paste rows</label>
     <textarea name="paste" placeholder="Abhay Kamalapur	https://www.linkedin.com/in/abhay-kamalapur-24868b388	KLE Technological University
 https://www.linkedin.com/in/kjh007"></textarea>
     <p class="muted">Tab or comma separated. A row with only a URL works too. Duplicate profiles are removed. Cost: 1 Seamless credit per student when an email is found; Seamless returns the credit when it finds nothing.</p>
-    <button class="btn" type="submit" id="go" {% if not server_key %}disabled{% endif %}>Find emails</button>
+    <button class="btn" type="submit" id="go">Upload and review</button>
   </form>
 </div>
 
@@ -45,10 +45,10 @@ https://www.linkedin.com/in/kjh007"></textarea>
     {% for j in jobs %}
       <tr>
         <td>{{ j.pk }}</td>
-        <td><a href="{% url 'finder:job' j.pk %}">{{ j.name|default:"(unnamed)" }}</a></td>
+        <td><a href="{% if j.state == 'draft' %}{% url 'finder:review' j.pk %}{% else %}{% url 'finder:job' j.pk %}{% endif %}">{{ j.name|default:"(unnamed)" }}</a></td>
         <td>{{ j.default_college }}</td>
         <td>{{ j.total }}</td>
-        <td class="ok">{{ j.found }}</td>
+        <td class="ok">{{ j.found_n }}</td>
         <td><span class="pill {{ j.state }}">{{ j.get_state_display }}</span></td>
         <td class="muted">{{ j.created_at|date:"d M Y, H:i" }}</td>
         <td><a class="btn ghost" href="{% url 'finder:download' j.pk %}">CSV</a></td>
