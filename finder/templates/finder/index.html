@@ -18,8 +18,14 @@
     {% if server_key %}<p class="muted" style="margin-top:12px">Seamless API key: loaded from .env</p>
     {% else %}<div class="msg error" style="margin-top:12px">SEAMLESS_API_KEY is missing. Add it to the .env file in the project folder and restart the server.</div>{% endif %}
 
-    <label>Upload file (Excel .xlsx, CSV or TSV)</label>
-    <div class="drop" id="drop">Drop a file here or click to choose<br><span class="muted" id="fname">Columns: name, linkedin_url, college</span></div>
+    <div class="msg info" style="margin-top:14px">
+      <b>Step 1:</b> Download the template, fill one student per row, and upload it.
+      <a class="btn ghost" style="margin-left:8px" href="{% url 'finder:template_xlsx' %}">Download Excel template</a>
+      <a class="btn ghost" href="{% url 'finder:template_csv' %}">CSV template</a>
+      <div class="muted" style="margin-top:8px">Columns: <b>Student Name</b> | <b>LinkedIn URL</b> | <b>College</b>. Keep the header row. Columns are read by their header, so their order does not matter.</div>
+    </div>
+    <label>Step 2: Upload the filled file (Excel .xlsx, CSV or TSV)</label>
+    <div class="drop" id="drop">Drop a file here or click to choose<br><span class="muted" id="fname">Student Name | LinkedIn URL | College</span></div>
     <input type="file" name="file" id="file" accept=".xlsx,.xlsm,.csv,.tsv,.txt" hidden>
 
     <label>Or paste rows</label>

@@ -140,6 +140,8 @@ def rows_from_xlsx(data):
     wb = load_workbook(io.BytesIO(data), read_only=False, data_only=True)
     rows = []
     for ws in wb.worksheets:
+        if ws.title.strip().lower() == "instructions":
+            continue
         for row in ws.iter_rows():
             out = []
             for cell in row:
@@ -166,26 +168,104 @@ def rows_from_text(text):
         return [line.split(delim) for line in text.split("\n")]
 
 
+TEMPLATE_HEADERS = ["Student Name", "LinkedIn URL", "College"]
+COLLEGE_WORDS = ("college", "university", "institute", "school", "polytechnic", "academy")
+
+
+def _header_map(row):
+    """If this row is a header, return {'name': i, 'url': i, 'college': i}. Else None."""
+    cells = [str(c).strip().lower() for c in row]
+    if any("linkedin.com/in/" in c for c in cells):
+        return None
+    m = {}
+    for i, c in enumerate(cells):
+        if not c:
+            continue
+        if "url" not in m and ("linkedin" in c or "profile" in c or c in ("url", "link")):
+            m["url"] = i
+        elif "college" not in m and any(w in c for w in COLLEGE_WORDS + ("company",)):
+            m["college"] = i
+        elif "name" not in m and "name" in c:
+            m["name"] = i
+    return m if "url" in m else None
+
+
+def looks_like_college(text):
+    t = (text or "").lower()
+    return any(w in t for w in COLLEGE_WORDS)
+
+
 def parse_rows(rows, default_college=""):
-    """rows: list of lists, or raw text. Any column holding a linkedin.com/in/ URL is the profile.
-    The first other column is the name, the second is the college."""
+    """rows: list of lists, or raw text.
+    With a header row (Student Name, LinkedIn URL, College) columns are read by header.
+    Without one: the cell with a linkedin.com/in/ URL is the profile, the first other
+    cell is the name and the second is the college."""
     if isinstance(rows, str):
         rows = rows_from_text(rows)
-    people, seen = [], set()
+    people, seen, hmap = [], set(), None
     for r in rows:
-        r = [str(c).strip() for c in r if c is not None]
-        url_i = next((i for i, c in enumerate(r) if "linkedin.com/in/" in c.lower()), None)
-        if url_i is None:
+        r = ["" if c is None else " ".join(str(c).split()) for c in r]
+        h = _header_map(r)
+        if h:
+            hmap = h
             continue
-        url = r[url_i].split()[0].rstrip("/")
+        cell = lambda k: r[hmap[k]] if hmap and k in hmap and hmap[k] < len(r) else ""
+        if hmap and "linkedin.com/in/" in cell("url").lower():
+            url, name, college = cell("url"), cell("name"), cell("college")
+        else:
+            url_i = next((i for i, c in enumerate(r) if "linkedin.com/in/" in c.lower()), None)
+            if url_i is None:
+                continue
+            url = r[url_i]
+            others = [c for i, c in enumerate(r) if i != url_i and c]
+            name = others[0] if others else ""
+            college = others[1] if len(others) > 1 else ""
+        url = url.split()[0].rstrip("/")
         if not url.startswith("http"):
             url = "https://" + url
         key = slug(url)
         if not key or key in seen:
             continue
         seen.add(key)
-        others = [" ".join(c.split()) for i, c in enumerate(r) if i != url_i and c]
-        name = others[0] if others else key.rsplit("-", 1)[0].replace("-", " ").title()
-        college = others[1] if len(others) > 1 else default_college
+        if not name:
+            name = key.rsplit("-", 1)[0].replace("-", " ").title()
+        college = college or default_college
         people.append({"name": name[:200], "linkedin_url": url, "college": college[:200]})
     return people
+
+
+def build_template_xlsx():
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Students"
+    ws.append(TEMPLATE_HEADERS)
+    for c in ws[1]:
+        c.font = Font(bold=True, color="FFFFFF")
+        c.fill = PatternFill("solid", fgColor="2350D8")
+        c.alignment = Alignment(vertical="center")
+    for col, w in zip("ABC", (30, 60, 40)):
+        ws.column_dimensions[col].width = w
+    ws.freeze_panes = "A2"
+    info = wb.create_sheet("Instructions")
+    for line in [
+        ["How to fill the Students sheet"],
+        [""],
+        ["Column A  Student Name", "Full name as on LinkedIn, for example: Abhay Kamalapur"],
+        ["Column B  LinkedIn URL", "Full profile link, for example: www linkedin com / in / abhay-kamalapur-24868b388"],
+        ["Column C  College", "Full college name, for example: KLE Technological University"],
+        [""],
+        ["Rules", "One student per row. Do not change the header row. Do not merge cells."],
+        ["", "Leave College empty to use the college you type on the upload page."],
+        ["", "Use the same college name for all students of one college."],
+        ["", "This Instructions sheet is ignored when you upload."],
+    ]:
+        info.append(line)
+    info["A1"].font = Font(bold=True, size=13)
+    info.column_dimensions["A"].width = 26
+    info.column_dimensions["B"].width = 90
+    import io as _io
+    buf = _io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()

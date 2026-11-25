@@ -8,7 +8,8 @@ from django.views.decorators.http import require_POST
 
 from .models import Job, StudentResult
 from .runner import start_job
-from .seamless import parse_rows, rows_from_text, rows_from_upload
+from .seamless import (TEMPLATE_HEADERS, build_template_xlsx, looks_like_college, parse_rows,
+                       rows_from_text, rows_from_upload)
 
 CSV_FIELDS = ["name", "linkedin_url", "college", "status", "valid_email", "email_type", "confidence",
               "match_check", "seamless_name", "seamless_company", "seamless_title",
@@ -40,6 +41,12 @@ def create_job(request):
     people = parse_rows(rows, college)
     if not people:
         messages.error(request, "No rows with a LinkedIn profile URL (linkedin.com/in/...) were found in the file or the pasted text.")
+        return redirect("finder:index")
+
+    swapped = sum(1 for p in people if looks_like_college(p["name"]) and not looks_like_college(p["college"]))
+    if swapped > len(people) / 2:
+        messages.error(request, "The Student Name column holds college names, so the columns look swapped. "
+                                "Download the template, put the data in the right columns and upload again.")
         return redirect("finder:index")
 
     job = Job.objects.create(name=request.POST.get("name", "").strip() or (f.name if f else ""),
@@ -114,3 +121,17 @@ def job_delete(request, pk):
     get_object_or_404(Job, pk=pk).delete()
     messages.success(request, "Job deleted.")
     return redirect("finder:index")
+
+
+def template_xlsx(request):
+    resp = HttpResponse(build_template_xlsx(),
+                        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    resp["Content-Disposition"] = 'attachment; filename="student_upload_template.xlsx"'
+    return resp
+
+
+def template_csv(request):
+    resp = HttpResponse(content_type="text/csv")
+    resp["Content-Disposition"] = 'attachment; filename="student_upload_template.csv"'
+    csv.writer(resp).writerow(TEMPLATE_HEADERS)
+    return resp

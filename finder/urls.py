@@ -6,6 +6,8 @@ app_name = "finder"
 
 urlpatterns = [
     path("", views.index, name="index"),
+    path("template.xlsx", views.template_xlsx, name="template_xlsx"),
+    path("template.csv", views.template_csv, name="template_csv"),
     path("jobs/new/", views.create_job, name="create"),
     path("jobs/<int:pk>/", views.job_detail, name="job"),
     path("jobs/<int:pk>/status/", views.job_status, name="status"),
