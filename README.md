@@ -8,8 +8,9 @@ Finds student emails from their name, LinkedIn profile URL and college, using yo
 python -m venv venv
 venv\Scripts\activate          # Windows   (Mac/Linux: source venv/bin/activate)
 pip install -r requirements.txt
+copy .env.example .env         # Mac/Linux: cp .env.example .env
+# open .env and put your key after SEAMLESS_API_KEY=
 python manage.py migrate
-set SEAMLESS_API_KEY=your-key   # Mac/Linux: export SEAMLESS_API_KEY=your-key  (or paste the key in the UI)
 python manage.py runserver
 ```
 
@@ -34,11 +35,13 @@ Optional: `python manage.py createsuperuser`, then use http://127.0.0.1:8000/adm
 | guessed_emails | Patterns Seamless guessed and marked invalid. Do not send to these. |
 | status / message | Seamless result: done, not found, error, timeout. |
 
-## Settings (environment variables)
+## Settings (.env file)
+
+All settings live in `.env` in the project folder. Restart the server after you change it.
 
 | Variable | Default |
 |---|---|
-| SEAMLESS_API_KEY | empty (enter in the UI) |
+| SEAMLESS_API_KEY | required |
 | SEAMLESS_BASE_URL | https://api.seamless.ai/api/client/v1 |
 | SEAMLESS_AUTH_HEADER | Token |
 | DJANGO_SECRET_KEY | dev key — set your own for any shared server |
@@ -50,7 +53,7 @@ If Seamless returns 401 or 404 on the first run, check the base URL and auth hea
 ## Notes
 
 - Cost: 1 Seamless credit per student when an email is found. Seamless returns credits when it finds nothing.
-- The API key is passed to the worker in memory. It is not saved in the database.
+- The API key is read from `.env`. It is not shown in the UI or saved in the database. `.env` is in `.gitignore`, so it stays on your machine.
 - Jobs run in a background thread. If you stop the server during a job, use Retry to finish it. For large volumes, move `finder/runner.py: run_job` into Celery.
 - Rate limit: 60 requests per minute. The app waits and retries on limit errors.
 

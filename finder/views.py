@@ -23,9 +23,9 @@ def index(request):
 
 @require_POST
 def create_job(request):
-    api_key = request.POST.get("api_key", "").strip() or settings.SEAMLESS_API_KEY
+    api_key = settings.SEAMLESS_API_KEY
     if not api_key:
-        messages.error(request, "Enter a Seamless API key, or set SEAMLESS_API_KEY on the server.")
+        messages.error(request, "SEAMLESS_API_KEY is missing. Add it to the .env file and restart the server.")
         return redirect("finder:index")
 
     text = request.POST.get("paste", "")
@@ -42,7 +42,7 @@ def create_job(request):
                              default_college=college, total=len(people))
     StudentResult.objects.bulk_create([
         StudentResult(job=job, row_no=i + 1, **p) for i, p in enumerate(people)])
-    start_job(job.pk, api_key)        # the key is passed to the worker only; it is not saved
+    start_job(job.pk, api_key)
     return redirect("finder:job", pk=job.pk)
 
 
@@ -84,9 +84,9 @@ def job_download(request, pk):
 def job_retry(request, pk):
     """Run again the rows that were not found, errored or timed out (for example with a new college name)."""
     job = get_object_or_404(Job, pk=pk)
-    api_key = request.POST.get("api_key", "").strip() or settings.SEAMLESS_API_KEY
+    api_key = settings.SEAMLESS_API_KEY
     if not api_key:
-        messages.error(request, "Enter a Seamless API key to retry.")
+        messages.error(request, "SEAMLESS_API_KEY is missing. Add it to the .env file and restart the server.")
         return redirect("finder:job", pk=pk)
     if job.state == "running":
         messages.error(request, "This job is still running.")

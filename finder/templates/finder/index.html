@@ -15,8 +15,8 @@
         <input type="text" name="college" placeholder="KLE Technological University">
       </div>
     </div>
-    <label>Seamless API key {% if server_key %}<span class="muted">(optional — the server already has one)</span>{% endif %}</label>
-    <input type="password" name="api_key" autocomplete="off" placeholder="{% if server_key %}Using the server key{% else %}Paste your Seamless API key{% endif %}">
+    {% if server_key %}<p class="muted" style="margin-top:12px">Seamless API key: loaded from .env</p>
+    {% else %}<div class="msg error" style="margin-top:12px">SEAMLESS_API_KEY is missing. Add it to the .env file in the project folder and restart the server.</div>{% endif %}
 
     <label>Upload file (CSV / TSV)</label>
     <div class="drop" id="drop">Drop a file here or click to choose<br><span class="muted" id="fname">Columns: name, linkedin_url, college</span></div>
@@ -26,7 +26,7 @@
     <textarea name="paste" placeholder="Abhay Kamalapur	https://www.linkedin.com/in/abhay-kamalapur-24868b388	KLE Technological University
 https://www.linkedin.com/in/kjh007"></textarea>
     <p class="muted">Tab or comma separated. A row with only a URL works too. Duplicate profiles are removed. Cost: 1 Seamless credit per student when an email is found; Seamless returns the credit when it finds nothing.</p>
-    <button class="btn" type="submit" id="go">Find emails</button>
+    <button class="btn" type="submit" id="go" {% if not server_key %}disabled{% endif %}>Find emails</button>
   </form>
 </div>
 

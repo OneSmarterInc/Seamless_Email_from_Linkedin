@@ -73,7 +73,6 @@
   <form method="post" action="{% url 'finder:retry' job.pk %}" class="tools">
     {% csrf_token %}
     <input type="text" name="college" placeholder="New college name (optional)">
-    <input type="password" name="api_key" autocomplete="off" placeholder="{% if server_key %}API key (server key used if empty){% else %}Seamless API key{% endif %}" style="width:260px">
     <button class="btn" type="submit" id="retry">Retry</button>
     <span style="flex:1"></span>
   </form>
