@@ -1,0 +1,141 @@
+{% extends "finder/base.html" %}
+{% block title %}{{ job }} · Student Email Finder{% endblock %}
+{% block content %}
+<style>
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+@media(max-width:900px){.stats{grid-template-columns:repeat(3,1fr)}}
+.stat{background:#f5f7fb;border-radius:10px;padding:12px}
+.stat span{font-size:12px;color:var(--muted)} .stat b{display:block;font-size:22px;margin-top:2px}
+.bar{height:8px;background:#e8ebf1;border-radius:99px;overflow:hidden;margin:14px 0 4px}
+.bar i{display:block;height:100%;width:0;background:var(--blue);transition:width .4s}
+#log{background:#101826;color:#cfe0ff;font:12px ui-monospace,Menlo,monospace;padding:12px;border-radius:10px;height:160px;overflow:auto;white-space:pre-wrap;margin:0}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tools input[type=text]{width:220px}
+.filters button{background:#fff;border:1px solid #cfd5df;border-radius:999px;padding:5px 12px;font-size:12px;cursor:pointer}
+.filters button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tablewrap{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.copy{cursor:pointer;border:0;background:none;color:var(--blue);font-size:12px}
+</style>
+
+<div class="card">
+  <div class="tools" style="justify-content:space-between">
+    <div>
+      <h1>{{ job.name|default:"Job" }} <span class="pill {{ job.state }}" id="state">{{ job.get_state_display }}</span></h1>
+      <p class="muted">Job #{{ job.pk }} · created {{ job.created_at|date:"d M Y, H:i" }}{% if job.default_college %} · college: {{ job.default_college }}{% endif %}</p>
+    </div>
+    <div class="tools">
+      <a class="btn green" href="{% url 'finder:download' job.pk %}?valid=1">Download valid emails</a>
+      <a class="btn ghost" href="{% url 'finder:download' job.pk %}">Download all rows</a>
+      <a class="btn ghost" href="{% url 'finder:index' %}">New lookup</a>
+    </div>
+  </div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <p class="muted" id="progress">Loading…</p>
+
+  <div class="stats">
+    <div class="stat"><span>Students</span><b id="s_total">–</b></div>
+    <div class="stat"><span>Processed</span><b id="s_done">–</b></div>
+    <div class="stat"><span>Valid emails</span><b id="s_found" class="ok">–</b></div>
+    <div class="stat"><span>Profile matched</span><b id="s_match">–</b></div>
+    <div class="stat"><span>Not found</span><b id="s_nf">–</b></div>
+    <div class="stat"><span>Hit rate</span><b id="s_rate">–</b></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Activity log</h2>
+  <pre id="log"></pre>
+</div>
+
+<div class="card">
+  <div class="tools" style="justify-content:space-between;margin-bottom:12px">
+    <div class="filters" id="filters">
+      <button data-f="all" class="on">All</button>
+      <button data-f="valid">Valid email</button>
+      <button data-f="guess">Guesses only</button>
+      <button data-f="nf">Not found</button>
+      <button data-f="check">Check match</button>
+    </div>
+    <input type="text" id="q" placeholder="Search name or email">
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>#</th><th>Student</th><th>College</th><th>Status</th><th>Valid email</th><th>Match</th><th>Seamless found</th><th>Guessed (unverified)</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Retry rows without a valid email</h2>
+  <p class="muted">Use this when rows came back "not found" (for example "Company name is required"), or to try a different college name. Rows already matched to the right profile are skipped.</p>
+  <form method="post" action="{% url 'finder:retry' job.pk %}" class="tools">
+    {% csrf_token %}
+    <input type="text" name="college" placeholder="New college name (optional)">
+    <input type="password" name="api_key" autocomplete="off" placeholder="{% if server_key %}API key (server key used if empty){% else %}Seamless API key{% endif %}" style="width:260px">
+    <button class="btn" type="submit" id="retry">Retry</button>
+    <span style="flex:1"></span>
+  </form>
+  <form method="post" action="{% url 'finder:delete' job.pk %}" onsubmit="return confirm('Delete this job and its results?')" style="margin-top:12px">
+    {% csrf_token %}<button class="btn red" type="submit">Delete job</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const statusUrl="{% url 'finder:status' job.pk %}";
+let data={rows:[]}, filter='all';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+document.querySelectorAll('#filters button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#filters button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); filter=b.dataset.f; draw();
+});
+$('q').oninput=draw;
+
+function keep(r){
+  const q=$('q').value.toLowerCase();
+  if(q && !(r.name.toLowerCase().includes(q) || r.valid_email.toLowerCase().includes(q))) return false;
+  if(filter==='valid') return !!r.valid_email;
+  if(filter==='guess') return !r.valid_email && !!r.guessed_emails;
+  if(filter==='nf') return r.status==='not found';
+  if(filter==='check') return r.match_check && r.match_check!=='linkedin_match';
+  return true;
+}
+
+function draw(){
+  $('rows').innerHTML=data.rows.filter(keep).map((r,i)=>`<tr>
+    <td>${i+1}</td>
+    <td><b>${esc(r.name)}</b><br><a href="${esc(r.linkedin_url)}" target="_blank" rel="noopener">LinkedIn ↗</a></td>
+    <td>${esc(r.college)}</td>
+    <td><span class="pill ${esc(r.status)}">${esc(r.status)}</span>${r.message?`<br><span class="warn">${esc(r.message)}</span>`:''}</td>
+    <td>${r.valid_email?`<span class="ok">${esc(r.valid_email)}</span> <button class="copy" onclick="navigator.clipboard.writeText('${esc(r.valid_email)}')">copy</button><br><span class="muted">${esc(r.email_type)} ${esc(r.confidence)}</span>`:'<span class="muted">—</span>'}</td>
+    <td>${r.match_check?`<span class="pill ${esc(r.match_check)}">${esc(r.match_check.replace(/_/g,' '))}</span>`:''}</td>
+    <td>${esc(r.seamless_name)}<br><span class="muted">${esc(r.seamless_company)} ${esc(r.seamless_title)}</span></td>
+    <td class="warn" style="font-size:12px">${esc(r.guessed_emails).replace(/; /g,'<br>')}</td>
+  </tr>`).join('') || '<tr><td colspan="8" class="muted">No rows for this filter.</td></tr>';
+}
+
+async function tick(){
+  try{
+    data=await (await fetch(statusUrl)).json();
+    const pct=data.total?Math.round(100*data.processed/data.total):0;
+    $('bar').style.width=pct+'%';
+    $('progress').textContent=`${data.processed} of ${data.total} processed (${pct}%)`;
+    $('s_total').textContent=data.total; $('s_done').textContent=data.processed;
+    $('s_found').textContent=data.found; $('s_match').textContent=data.matched; $('s_nf').textContent=data.not_found;
+    $('s_rate').textContent=data.processed?Math.round(100*data.found/data.processed)+'%':'–';
+    const st=$('state'); st.textContent=data.state[0].toUpperCase()+data.state.slice(1); st.className='pill '+data.state;
+    const lg=$('log'), atEnd=lg.scrollTop+lg.clientHeight>=lg.scrollHeight-20;
+    lg.textContent=data.log||'Waiting for the worker…'; if(atEnd) lg.scrollTop=lg.scrollHeight;
+    $('retry').disabled=(data.state==='running'||data.state==='queued');
+    draw();
+  }catch(e){ $('progress').textContent='Lost connection to the server. Retrying…'; }
+  if(!data.state || data.state==='running' || data.state==='queued') setTimeout(tick,2000);
+}
+tick();
+</script>
+{% endblock %}

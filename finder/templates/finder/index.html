@@ -1,0 +1,67 @@
+{% extends "finder/base.html" %}
+{% block content %}
+<div class="card">
+  <h1>New lookup</h1>
+  <p class="muted">Upload a CSV or paste rows with the student name, LinkedIn profile URL and college. The app sends each student to Seamless with the college as the company and keeps only emails Seamless marks valid.</p>
+  <form method="post" action="{% url 'finder:create' %}" enctype="multipart/form-data" id="f">
+    {% csrf_token %}
+    <div class="grid2">
+      <div>
+        <label>Job name (optional)</label>
+        <input type="text" name="name" placeholder="KLE Tech batch 1">
+      </div>
+      <div>
+        <label>Default college (used when a row has no college)</label>
+        <input type="text" name="college" placeholder="KLE Technological University">
+      </div>
+    </div>
+    <label>Seamless API key {% if server_key %}<span class="muted">(optional — the server already has one)</span>{% endif %}</label>
+    <input type="password" name="api_key" autocomplete="off" placeholder="{% if server_key %}Using the server key{% else %}Paste your Seamless API key{% endif %}">
+
+    <label>Upload file (CSV / TSV)</label>
+    <div class="drop" id="drop">Drop a file here or click to choose<br><span class="muted" id="fname">Columns: name, linkedin_url, college</span></div>
+    <input type="file" name="file" id="file" accept=".csv,.tsv,.txt" hidden>
+
+    <label>Or paste rows</label>
+    <textarea name="paste" placeholder="Abhay Kamalapur	https://www.linkedin.com/in/abhay-kamalapur-24868b388	KLE Technological University
+https://www.linkedin.com/in/kjh007"></textarea>
+    <p class="muted">Tab or comma separated. A row with only a URL works too. Duplicate profiles are removed. Cost: 1 Seamless credit per student when an email is found; Seamless returns the credit when it finds nothing.</p>
+    <button class="btn" type="submit" id="go">Find emails</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Recent jobs</h2>
+  {% if jobs %}
+  <table>
+    <thead><tr><th>#</th><th>Name</th><th>College</th><th>Students</th><th>Valid emails</th><th>Status</th><th>Created</th><th></th></tr></thead>
+    <tbody>
+    {% for j in jobs %}
+      <tr>
+        <td>{{ j.pk }}</td>
+        <td><a href="{% url 'finder:job' j.pk %}">{{ j.name|default:"(unnamed)" }}</a></td>
+        <td>{{ j.default_college }}</td>
+        <td>{{ j.total }}</td>
+        <td class="ok">{{ j.found }}</td>
+        <td><span class="pill {{ j.state }}">{{ j.get_state_display }}</span></td>
+        <td class="muted">{{ j.created_at|date:"d M Y, H:i" }}</td>
+        <td><a class="btn ghost" href="{% url 'finder:download' j.pk %}">CSV</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">No jobs yet.</p>{% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const drop=document.getElementById('drop'), file=document.getElementById('file'), fname=document.getElementById('fname');
+drop.onclick=()=>file.click();
+file.onchange=()=>{ if(file.files[0]){ fname.textContent=file.files[0].name; drop.classList.add('on'); } };
+['dragover','dragenter'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('on')}));
+['dragleave'].forEach(e=>drop.addEventListener(e,()=>{ if(!file.files[0]) drop.classList.remove('on') }));
+drop.addEventListener('drop',ev=>{ev.preventDefault(); file.files=ev.dataTransfer.files; file.onchange();});
+document.getElementById('f').onsubmit=()=>{ const b=document.getElementById('go'); b.disabled=true; b.textContent='Starting…'; };
+</script>
+{% endblock %}

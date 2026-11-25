@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Student Email Finder{% endblock %}</title>
+<style>
+:root{--ink:#1b2333;--muted:#6b7488;--line:#e3e7ee;--bg:#f6f7fa;--blue:#2350d8;--green:#13804a;--amber:#b25e00;--red:#b42318}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg)}
+header{background:#fff;border-bottom:1px solid var(--line)}
+header .in{max-width:1240px;margin:auto;padding:14px 20px;display:flex;align-items:center;gap:14px}
+header a.brand{font-weight:700;font-size:17px;color:var(--ink);text-decoration:none}
+header .tag{font-size:12px;color:var(--muted)}
+main{max-width:1240px;margin:auto;padding:22px 20px 60px}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:18px}
+h1{font-size:22px;margin:0 0 4px} h2{font-size:16px;margin:0 0 12px}
+.muted{color:var(--muted);font-size:13px}
+label{display:block;font-weight:600;font-size:13px;margin:12px 0 5px}
+input[type=text],input[type=password],textarea{width:100%;padding:9px 10px;border:1px solid #cfd5df;border-radius:8px;font:inherit;background:#fff}
+textarea{min-height:130px;font:12px ui-monospace,Menlo,monospace}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+.btn{display:inline-block;border:0;border-radius:8px;padding:9px 16px;font-weight:600;font-size:14px;cursor:pointer;text-decoration:none;color:#fff;background:var(--blue)}
+.btn.green{background:var(--green)} .btn.ghost{background:#fff;color:var(--ink);border:1px solid #cfd5df} .btn.red{background:var(--red)}
+.btn:disabled{opacity:.5;cursor:default}
+.drop{border:2px dashed #c5cdda;border-radius:10px;padding:18px;text-align:center;color:var(--muted);cursor:pointer;background:#fafbfd}
+.drop.on{border-color:var(--blue);background:#eef2fd;color:var(--ink)}
+.msg{padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:14px}
+.msg.error{background:#fdecea;color:var(--red)} .msg.success{background:#e8f6ee;color:var(--green)} .msg.info{background:#eef2fd;color:var(--blue)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:#f3f5f9;font-weight:600;position:sticky;top:0;z-index:1}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:#eef0f4;color:var(--muted)}
+.pill.done,.pill.linkedin_match{background:#e8f6ee;color:var(--green)}
+.pill.running,.pill.queued,.pill.submitted,.pill.pending{background:#eef2fd;color:var(--blue)}
+.pill.error,.pill.wrong_person,.pill.timeout{background:#fdecea;color:var(--red)}
+.pill.not.found,.pill.name_match_only{background:#fff4e5;color:var(--amber)}
+.ok{color:var(--green);font-weight:600} .warn{color:var(--amber)}
+</style>
+</head>
+<body>
+<header><div class="in"><a class="brand" href="{% url 'finder:index' %}">Student Email Finder</a><span class="tag">Seamless.AI · LinkedIn profile + college</span></div></header>
+<main>
+{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}
+{% block content %}{% endblock %}
+</main>
+{% block scripts %}{% endblock %}
+</body>
+</html>
